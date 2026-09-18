@@ -54,10 +54,15 @@ run(function()
 	end)
 end)
 
-for _, v in vape.Modules do
+-- Collect first, then remove: mutating vape.Modules while iterating it skips entries.
+local toRemove = {}
+for name, v in vape.Modules do
 	if v.Category == 'Combat' or v.Category == 'Minigames' then
-		vape:Remove(i)
+		table.insert(toRemove, name)
 	end
+end
+for _, name in toRemove do
+	vape:Remove(name)
 end
 
 run(function()

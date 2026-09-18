@@ -33,7 +33,7 @@ local cloneref = cloneref or function(obj) return obj end
 local plrs = cloneref(game:GetService('Players'))
 local hs = game:GetService('HttpService')
 local isMobile = shared.FlowVapeIsMobile == true
-local repo = 'https://raw.githubusercontent.com/complexwaremain/FlowVape/main/'
+local repo = 'https://raw.githubusercontent.com/mariahsophia-jayz/FlowVape/main/'
 
 local all_profiles = {
     ['6872274481'] = {
@@ -161,7 +161,7 @@ shared.vapereload = true
 if shared.VapeDeveloper then
     loadstring(readfile('FlowVape/loader.lua'), 'loader')()
 else
-    loadstring(game:HttpGet('https://raw.githubusercontent.com/complexwaremain/FlowVape/main/loader.lua', true), 'loader')()
+    loadstring(game:HttpGet('https://raw.githubusercontent.com/mariahsophia-jayz/FlowVape/main/loader.lua', true), 'loader')()
 end
 ]]
             if shared.VapeDeveloper then
@@ -254,6 +254,10 @@ if not shared.VapeIndependent then
                 return game:HttpGet(repo .. 'games/' .. game.PlaceId .. '.lua', true)
             end)
             if s_net and net_code and net_code ~= '' and net_code ~= '404: Not Found' then
+                -- Watermark so the loader's wipe step refreshes this on the next update
+                if not net_code:find('^%-%-This watermark') then
+                    net_code = '--This watermark is used to delete the file if its cached, remove it to make the file persist after vape updates.\n' .. net_code
+                end
                 writefile(path, net_code)
                 local game_fn, game_err = loadstring(net_code, tostring(game.PlaceId))
                 if game_fn then

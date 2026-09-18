@@ -205,7 +205,13 @@ local function addMaid(object)
 			table.insert(self.Connections, {
 				Disconnect = callback
 			})
-		else
+		elseif type(callback) == 'thread' then
+			table.insert(self.Connections, {
+				Disconnect = function()
+					pcall(task.cancel, callback)
+				end
+			})
+		elseif callback ~= nil then
 			table.insert(self.Connections, callback)
 		end
 	end
@@ -313,7 +319,7 @@ local function downloadFile(path, func)
 	if not isfile(path) then
 		createDownloader(path)
 		local suc, res = pcall(function()
-			return game:HttpGet('https://raw.githubusercontent.com/complexwaremain/FlowVape/main/'..select(1, path:gsub('FlowVape/', '')), true)
+			return game:HttpGet('https://raw.githubusercontent.com/mariahsophia-jayz/FlowVape/main/'..select(1, path:gsub('FlowVape/', '')), true)
 		end)
 		if not suc or res == '404: Not Found' then
 			error(res)
@@ -1253,6 +1259,20 @@ components = {
 		function optionapi:Color(hue, sat, val, rainbowcheck)
 			fill.BackgroundColor3 = rainbowcheck and Color3.fromHSV(mainapi:Color((hue - (self.Index * 0.075)) % 1)) or Color3.fromHSV(hue, sat, val)
 			knob.BackgroundColor3 = fill.BackgroundColor3
+		end
+		
+		function optionapi:SetMax(max)
+			max = tonumber(max)
+			if not max or max ~= max or max == math.huge or max <= optionsettings.Min then return end
+			optionsettings.Max = max
+			self.Max = max
+			if self.Value > max then
+				self:SetValue(max, nil, true)
+			else
+				tween:Tween(fill, uipallet.Tween, {
+					Size = UDim2.fromScale(math.clamp(math.clamp(self.Value / optionsettings.Max, 0, 1), 0.04, 0.96), 1)
+				})
+			end
 		end
 		
 		function optionapi:SetValue(value, pos, final)
@@ -5921,7 +5941,7 @@ general:CreateButton({
 		if shared.VapeDeveloper then
 			loadstring(readfile('FlowVape/loader.lua'), 'loader')()
 		else
-			loadstring(game:HttpGet('https://raw.githubusercontent.com/complexwaremain/FlowVape/'..readfile('FlowVape/profiles/commit.txt')..'/loader.lua', true))()
+			loadstring(game:HttpGet('https://raw.githubusercontent.com/mariahsophia-jayz/FlowVape/'..readfile('FlowVape/profiles/commit.txt')..'/loader.lua', true))()
 		end
 	end,
 	Tooltip = 'This will set your profile to the default settings of Vape'
@@ -5940,7 +5960,7 @@ general:CreateButton({
 		if shared.VapeDeveloper then
 			loadstring(readfile('FlowVape/loader.lua'), 'loader')()
 		else
-			loadstring(game:HttpGet('https://raw.githubusercontent.com/complexwaremain/FlowVape/'..readfile('FlowVape/profiles/commit.txt')..'/loader.lua', true))()
+			loadstring(game:HttpGet('https://raw.githubusercontent.com/mariahsophia-jayz/FlowVape/'..readfile('FlowVape/profiles/commit.txt')..'/loader.lua', true))()
 		end
 	end,
 	Tooltip = 'Reloads vape for debugging purposes'
@@ -6048,7 +6068,7 @@ guipane:CreateDropdown({
 			if shared.VapeDeveloper then
 				loadstring(readfile('FlowVape/loader.lua'), 'loader')()
 			else
-				loadstring(game:HttpGet('https://raw.githubusercontent.com/complexwaremain/FlowVape/'..readfile('FlowVape/profiles/commit.txt')..'/loader.lua', true))()
+				loadstring(game:HttpGet('https://raw.githubusercontent.com/mariahsophia-jayz/FlowVape/'..readfile('FlowVape/profiles/commit.txt')..'/loader.lua', true))()
 			end
 		end
 	end,

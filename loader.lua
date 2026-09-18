@@ -7,7 +7,7 @@ local delfile = delfile or function(path)
     pcall(writefile, path, '')
 end
 
-local repo = 'https://raw.githubusercontent.com/complexwaremain/FlowVape/main/'
+local repo = 'https://raw.githubusercontent.com/mariahsophia-jayz/FlowVape/main/'
 
 local function wipeFolder(dir)
     if not isfolder(dir) then return end
@@ -30,11 +30,24 @@ end
 
 task.wait(0.1)
 
+local function fetchCommit()
+    local s, res = pcall(game.HttpGet, game, 'https://api.github.com/repos/mariahsophia-jayz/FlowVape/commits/main')
+    if s and type(res) == 'string' then
+        local sha = res:match('"sha"%s*:%s*"(%x+)"')
+        if sha and #sha == 40 then
+            return sha
+        end
+    end
+    local s2, raw = pcall(game.HttpGet, game, 'https://github.com/mariahsophia-jayz/FlowVape')
+    if s2 and type(raw) == 'string' then
+        local sha = raw:match('currentOid.-(%x%x%x%x%x%x%x%x%x%x%x%x%x%x%x%x%x%x%x%x%x%x%x%x%x%x%x%x%x%x%x%x%x%x%x%x%x%x%x%x)')
+        if sha then return sha end
+    end
+    return 'main'
+end
+
 if not shared.VapeDeveloper then
-    local s, raw = pcall(function() 
-        return game:HttpGet('https://github.com/complexwaremain/FlowVape') 
-    end)
-    local commit = raw and raw:match('currentOid.-(%x%x%x%x%x%x%x%x%x%x%x%x%x%x%x%x%x%x%x%x%x%x%x%x%x%x%x%x%x%x%x%x%x%x%x%x%x%x%x%x)') or 'main'
+    local commit = fetchCommit()
     local cur = isfile('FlowVape/profiles/commit.txt') and readfile('FlowVape/profiles/commit.txt') or ''
     
     if commit == 'main' or cur ~= commit then
