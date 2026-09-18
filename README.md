@@ -17,6 +17,28 @@ Dev, Bug Fixer, (Jayz, Complex)
 🚀 Installation
 
 To use FlowVape, simply execute the loader script in your preferred Roblox executor.
-loadstring(game:HttpGet('https://raw.githubusercontent.com/complexwaremain/FlowVape/main/NewMainScript.lua'))()
+loadstring(game:HttpGet('https://raw.githubusercontent.com/mariahsophia-jayz/FlowVape/main/NewMainScript.lua'))()
 
 Discord Server For FlowVape: https://discord.gg/ayMU8GakVw
+
+## 📝 Changelog
+
+### 2026-09 — Module fix & revamp pass
+- **Root cause fix:** `safeGetProto` in `games/6872274481.lua` was calling itself recursively instead of `debug.getproto`, so ~20 remotes (EquipItem, ConsumeItem, DropItem, AfkStatus, kit remotes, …) resolved to empty strings and every module using them silently failed. Now resolves correctly, with nested-proto scanning and named fallbacks.
+- **NoFall:** restored the working 4-mode module (Packet / Gravity / Teleport / Bounce). Packet mode cancels fall damage server-side via the GroundHit remote.
+- **AutoShoot:** rewritten. `Nearest` mode auto-fires your best bow/crossbow at the closest enemy **without holding the bow**, swaps back to your previous item. `Crossbow Macro` keeps the old behaviour.
+- **ProjectileAura:** no longer requires a bow in hand; picks best launcher by damage, supports Head/RootPart targeting, min delay, switch-back, sword-check, balloon gravity compensation.
+- **ProjectileAimbot:** raycast filter now resolves the map at shoot time instead of load time; NPC targets no longer error.
+- **Speed:** merged `ZephyrDisabler` into Speed as a `Mode` dropdown (Heatseeker = 23 cap, Zephyr = 50 cap). Slider max updates live.
+- **HitFix:** removed the duplicate Legit copy; patches constants by value instead of hard-coded index so it survives game updates; properly restores on disable.
+- **Killaura:** attack-remote lookup no longer hangs forever; upvalue save/restore no longer leaks between toggles.
+- **AntiFall:** waits for the map to stream in instead of giving up on the first empty read; no longer crashes when `InfiniteFly` is absent.
+- **AutoWin:** `TeleportService` was never defined — fixed.
+- **BetterDavey:** no longer blocks forever in lobby (`WaitForChild(..., math.huge)`); referenced out-of-scope `Speed`/`Fly` locals fixed; leaked global fixed.
+- **MouseTP:** "Closest Player" actually picks the closest (distance was never updated) and respects teams/friends.
+- **TriggerBot Bow Check:** works on executors without `mouse1click`.
+- **AutoHonor:** uses Bedwars team attributes instead of Roblox `Team`, correct honor count.
+- **KitRender:** no longer depends on `isrbxactive`.
+- **Lobby script:** `vape:Remove(i)` referenced an undefined variable; fixed and no longer mutates the table while iterating.
+- **GUI:** `moduleapi:Clean` accepts threads; sliders gained `SetMax`.
+- **Loader / NewMainScript:** commit lookup uses the GitHub API with HTML scrape as fallback; all URLs point at `mariahsophia-jayz/FlowVape`.

@@ -16,7 +16,7 @@ local delfile = delfile or function(path)
 	writefile(path, '')
 end
 
-local repo = 'https://raw.githubusercontent.com/complexwaremain/FlowVape/main/'
+local repo = 'https://raw.githubusercontent.com/mariahsophia-jayz/FlowVape/main/'
 
 if not game:IsLoaded() then
 	game.Loaded:Wait()
@@ -57,13 +57,26 @@ local function init_dirs()
 	end
 end
 
+local function fetch_commit()
+	-- Prefer the API (stable JSON), fall back to scraping the repo page.
+	local s, res = pcall(game.HttpGet, game, 'https://api.github.com/repos/mariahsophia-jayz/FlowVape/commits/main')
+	if s and type(res) == 'string' then
+		local sha = res:match('"sha"%s*:%s*"(%x+)"')
+		if sha and #sha == 40 then
+			return sha
+		end
+	end
+	local s2, raw = pcall(game.HttpGet, game, 'https://github.com/mariahsophia-jayz/FlowVape')
+	if s2 and type(raw) == 'string' then
+		local sha = raw:match('currentOid.-(%x%x%x%x%x%x%x%x%x%x%x%x%x%x%x%x%x%x%x%x%x%x%x%x%x%x%x%x%x%x%x%x%x%x%x%x%x%x%x%x)')
+		if sha then return sha end
+	end
+	return 'main'
+end
+
 local function check_commit()
 	if shared.VapeDeveloper then return end
-	local s, raw = pcall(function()
-		return game:HttpGet('https://github.com/complexwaremain/FlowVape')
-	end)
-	
-	local commit = raw and raw:match('currentOid.-(%x%x%x%x%x%x%x%x%x%x%x%x%x%x%x%x%x%x%x%x%x%x%x%x%x%x%x%x%x%x%x%x%x%x%x%x%x%x%x%x)') or 'main'
+	local commit = fetch_commit()
 	local cur = isfile('FlowVape/profiles/commit.txt') and readfile('FlowVape/profiles/commit.txt') or ''
 	
 	if commit == 'main' or cur ~= commit then
@@ -156,7 +169,7 @@ local function get_assets()
 		makefolder('FlowVape/assets/new')
 	end
 	
-	local s, res = pcall(game.HttpGet, game, 'https://api.github.com/repos/complexwaremain/FlowVape/contents/assets/new?ref=main')
+	local s, res = pcall(game.HttpGet, game, 'https://api.github.com/repos/mariahsophia-jayz/FlowVape/contents/assets/new?ref=main')
 	if not s or not res then return end
 	
 	local parsed

@@ -16,7 +16,7 @@ end
 local function downloadFile(path, func)
 	if not isfile(path) then
 		local suc, res = pcall(function() 
-			return game:HttpGet('https://raw.githubusercontent.com/complexwaremain/FlowVape/'..readfile('FlowVape/profiles/commit.txt')..'/'..select(1, path:gsub('FlowVape/', '')), true) 
+			return game:HttpGet('https://raw.githubusercontent.com/mariahsophia-jayz/FlowVape/'..readfile('FlowVape/profiles/commit.txt')..'/'..select(1, path:gsub('FlowVape/', '')), true) 
 		end)
 		if not suc or res == '404: Not Found' then 
 			error(res) 
@@ -35,7 +35,7 @@ if isfile('FlowVape/games/'..vape.Place..'.lua') then
 else
 	if not shared.VapeDeveloper then
 		local suc, res = pcall(function() 
-			return game:HttpGet('https://raw.githubusercontent.com/complexwaremain/FlowVape/'..readfile('FlowVape/profiles/commit.txt')..'/games/'..vape.Place..'.lua', true) 
+			return game:HttpGet('https://raw.githubusercontent.com/mariahsophia-jayz/FlowVape/'..readfile('FlowVape/profiles/commit.txt')..'/games/'..vape.Place..'.lua', true) 
 		end)
 		if suc and res ~= '404: Not Found' then
 			loadstring(downloadFile('FlowVape/games/'..vape.Place..'.lua'), 'bedwars')()
