@@ -1,6 +1,24 @@
 --This watermark is used to delete the file if its cached, remove it to make the file persist after vape updates.
-local run = function(func)
-	func()
+local hasReportedModuleError = false
+local function run(callback)
+	local success, err = pcall(callback)
+	if not success then
+		warn(('[FlowVape] Failed to initialize a game module: %s'):format(tostring(err)))
+
+		local currentVape = shared and shared.vape
+		if currentVape and not hasReportedModuleError then
+			hasReportedModuleError = true
+			pcall(function()
+				currentVape:CreateNotification(
+					'FlowVape',
+					'A game module failed to initialize. Check the console for details.',
+					8,
+					'alert'
+				)
+			end)
+		end
+	end
+	return success
 end
 local cloneref = cloneref or function(obj)
 	return obj
@@ -128,40 +146,55 @@ local function collection(tags, module, customadd, customremove)
 end
 
 local function getBestArmor(slot)
-	local closest, mag = nil, 0
+	local bestItem, bestReduction = nil, 0
+	local items = store.inventory.inventory.items
 
-	for _, item in store.inventory.inventory.items do
-		local meta = item and bedwars.ItemMeta[item.itemType] or {}
+	for _, item in items do
+		local itemType = item and item.itemType
+		local itemMeta = itemType and bedwars.ItemMeta and bedwars.ItemMeta[itemType]
+		local armorMeta = itemMeta and itemMeta.armor
+		local reduction = tonumber(armorMeta and armorMeta.damageReductionMultiplier) or 0
 
-		if meta.armor and meta.armor.slot == slot then
-			local newmag = (meta.armor.damageReductionMultiplier or 0)
-
-			if newmag > mag then
-				closest, mag = item, newmag
-			end
+		if armorMeta and armorMeta.slot == slot and reduction > bestReduction then
+			bestItem, bestReduction = item, reduction
 		end
 	end
 
-	return closest
+	return bestItem
 end
 
 local function getBow()
 	local bestBow, bestBowSlot, bestBowDamage = nil, nil, 0
-	for slot, item in store.inventory.inventory.items do
-		local bowMeta = bedwars.ItemMeta[item.itemType].projectileSource
-		if bowMeta and table.find(bowMeta.ammoItemTypes, 'arrow') then
-			local bowDamage = bedwars.ProjectileMeta[bowMeta.projectileType('arrow')].combat.damage or 0
-			if bowDamage > bestBowDamage then
-				bestBow, bestBowSlot, bestBowDamage = item, slot, bowDamage
+	local items = store.inventory.inventory.items
+
+	for slot, item in items do
+		local itemType = item and item.itemType
+		local itemMeta = itemType and bedwars.ItemMeta and bedwars.ItemMeta[itemType]
+		local bowMeta = itemMeta and itemMeta.projectileSource
+		local ammoTypes = bowMeta and bowMeta.ammoItemTypes
+		local projectileType
+
+		if type(ammoTypes) == 'table' and table.find(ammoTypes, 'arrow') and type(bowMeta.projectileType) == 'function' then
+			local success, result = pcall(bowMeta.projectileType, 'arrow')
+			if success then
+				projectileType = result
 			end
 		end
+
+		local projectileMeta = projectileType and bedwars.ProjectileMeta and bedwars.ProjectileMeta[projectileType]
+		local damage = tonumber(projectileMeta and projectileMeta.combat and projectileMeta.combat.damage) or 0
+		if damage > bestBowDamage then
+			bestBow, bestBowSlot, bestBowDamage = item, slot, damage
+		end
 	end
+
 	return bestBow, bestBowSlot
 end
 
 local function getItem(itemName, inv)
-	for slot, item in (inv or store.inventory.inventory.items) do
-		if item.itemType == itemName then
+	local items = inv or store.inventory.inventory.items
+	for slot, item in items do
+		if item and item.itemType == itemName then
 			return item, slot
 		end
 	end
@@ -174,62 +207,77 @@ end
 
 local function getSword()
 	local bestSword, bestSwordSlot, bestSwordDamage = nil, nil, 0
-	for slot, item in store.inventory.inventory.items do
-		local swordMeta = bedwars.ItemMeta[item.itemType].sword
-		if swordMeta then
-			local swordDamage = swordMeta.damage or 0
-			if swordDamage > bestSwordDamage then
-				bestSword, bestSwordSlot, bestSwordDamage = item, slot, swordDamage
-			end
+	local items = store.inventory.inventory.items
+
+	for slot, item in items do
+		local itemType = item and item.itemType
+		local itemMeta = itemType and bedwars.ItemMeta and bedwars.ItemMeta[itemType]
+		local swordMeta = itemMeta and itemMeta.sword
+		local damage = tonumber(swordMeta and swordMeta.damage) or 0
+
+		if damage > bestSwordDamage then
+			bestSword, bestSwordSlot, bestSwordDamage = item, slot, damage
 		end
 	end
+
 	return bestSword, bestSwordSlot
 end
 
 local function getTool(breakType)
 	local bestTool, bestToolSlot, bestToolDamage = nil, nil, 0
-	for slot, item in store.inventory.inventory.items do
-		local toolMeta = bedwars.ItemMeta[item.itemType].breakBlock
-		if toolMeta then
-			local toolDamage = toolMeta[breakType] or 0
-			if toolDamage > bestToolDamage then
-				bestTool, bestToolSlot, bestToolDamage = item, slot, toolDamage
-			end
+	local items = store.inventory.inventory.items
+
+	for slot, item in items do
+		local itemType = item and item.itemType
+		local itemMeta = itemType and bedwars.ItemMeta and bedwars.ItemMeta[itemType]
+		local breakMeta = itemMeta and itemMeta.breakBlock
+		local damage = tonumber(breakMeta and breakMeta[breakType]) or 0
+
+		if damage > bestToolDamage then
+			bestTool, bestToolSlot, bestToolDamage = item, slot, damage
 		end
 	end
+
 	return bestTool, bestToolSlot
 end
 
-local function getWool()
-	for _, wool in (inv or store.inventory.inventory.items) do
-		if wool.itemType:find('wool') then
-			return wool and wool.itemType, wool and wool.amount
+local function getWool(inv)
+	local items = inv or store.inventory.inventory.items
+	for _, item in items do
+		local itemType = item and item.itemType
+		if type(itemType) == 'string' and itemType:find('wool', 1, true) then
+			return itemType, item.amount
 		end
 	end
 end
 
-local function getStrength(plr)
-	if not plr.Player then
+local function getStrength(entity)
+	local player = entity and entity.Player
+	if not player then
 		return 0
 	end
 
 	local strength = 0
-	for _, v in (store.inventories[plr.Player] or {items = {}}).items do
-		local itemmeta = bedwars.ItemMeta[v.itemType]
-		if itemmeta and itemmeta.sword and itemmeta.sword.damage > strength then
-			strength = itemmeta.sword.damage
-		end
+	local inventory = store.inventories[player]
+	for _, item in (inventory and inventory.items or {}) do
+		local itemType = item and item.itemType
+		local itemMeta = itemType and bedwars.ItemMeta and bedwars.ItemMeta[itemType]
+		local swordMeta = itemMeta and itemMeta.sword
+		local damage = tonumber(swordMeta and swordMeta.damage) or 0
+		strength = math.max(strength, damage)
 	end
 
 	return strength
 end
 
 local function getPlacedBlock(pos)
-	if not pos then
-		return
+	local blockController = bedwars.BlockController
+	if not pos or not blockController then
+		return nil
 	end
-	local roundedPosition = bedwars.BlockController:getBlockPosition(pos)
-	return bedwars.BlockController:getStore():getBlockAt(roundedPosition), roundedPosition
+
+	local roundedPosition = blockController:getBlockPosition(pos)
+	return blockController:getStore():getBlockAt(roundedPosition), roundedPosition
 end
 
 local function getBlocksInPoints(s, e)
@@ -248,9 +296,20 @@ local function getBlocksInPoints(s, e)
 end
 
 local function getNearGround(range)
+	local character = entitylib.character
+	local root = character and character.RootPart
+	if not root then
+		return nil
+	end
+
 	range = Vector3.new(3, 3, 3) * (range or 10)
-	local localPosition, mag, closest = entitylib.character.RootPart.Position, 60
-	local blocks = getBlocksInPoints(bedwars.BlockController:getBlockPosition(localPosition - range), bedwars.BlockController:getBlockPosition(localPosition + range))
+	local localPosition, mag, closest = root.Position, 60
+	local blockController = bedwars.BlockController
+	if not blockController then
+		return nil
+	end
+
+	local blocks = getBlocksInPoints(blockController:getBlockPosition(localPosition - range), blockController:getBlockPosition(localPosition + range))
 
 	for _, v in blocks do
 		if not getPlacedBlock(v + Vector3.new(0, 3, 0)) then
@@ -9940,97 +9999,196 @@ end)
 run(function()
 	local NoFall
 	local Mode
+	local groundHitConnection
+	local groundHitRemote
+	local groundHitSent = false
+
+	local PACKET_FALL_THRESHOLD = -35
+	local DAMAGE_FALL_THRESHOLD = -85
+	local GROUND_PROBE_OFFSET = 0.75
+	local GROUND_PROBE_STEP = 3
+	local GROUND_PROBE_ATTEMPTS = 5
+	local RAYCAST_SIZE = Vector3.new(3, 3, 3)
+
 	local rayParams = RaycastParams.new()
 	rayParams.RespectCanCollide = true
-	local groundHit
-	task.spawn(function()
-		repeat task.wait() until (remotes.GroundHit and remotes.GroundHit ~= '') or vape.Loaded == nil
-		if vape.Loaded == nil then return end
-		pcall(function()
-			groundHit = bedwars.Client:Get(remotes.GroundHit).instance
-		end)
-	end)
 
-	local function fireGroundHit(velocityY)
-		if not groundHit then
+	local function findGroundBlock(root, humanoid)
+		if not root or not humanoid then
+			return nil
+		end
+
+		local position = root.Position - Vector3.new(0, root.Size.Y / 2 + humanoid.HipHeight + GROUND_PROBE_OFFSET, 0)
+		for _ = 1, GROUND_PROBE_ATTEMPTS do
+			local block = getPlacedBlock(position)
+			if block then
+				return block
+			end
+			position -= Vector3.new(0, GROUND_PROBE_STEP, 0)
+		end
+	end
+
+	local function getGroundHitRemote()
+		if groundHitRemote then
+			return groundHitRemote
+		end
+
+		local remoteName = remotes.GroundHit
+		if type(remoteName) ~= 'string' or remoteName == '' then
+			remoteName = 'GroundHit'
+		end
+
+		local success, remote = pcall(function()
+			return bedwars.Client:Get(remoteName)
+		end)
+		if success then
+			groundHitRemote = remote
+		end
+		return groundHitRemote
+	end
+
+	local function sendGroundHit(root, humanoid)
+		local remote = getGroundHitRemote()
+		if not remote then
+			return false
+		end
+
+		local blockSuccess, groundBlock = pcall(findGroundBlock, root, humanoid)
+		if not blockSuccess then
+			groundBlock = nil
+		end
+
+		local success = pcall(function()
+			remote:SendToServer(groundBlock, Vector3.new(0, 2.5, 0), workspace:GetServerTimeNow())
+		end)
+		if not success then
+			groundHitRemote = nil
+		end
+		return success
+	end
+
+	local function castDown(root, distance)
+		local filter = {}
+		if lplr.Character then
+			table.insert(filter, lplr.Character)
+		end
+		if gameCamera then
+			table.insert(filter, gameCamera)
+		end
+
+		rayParams.FilterDescendantsInstances = filter
+		rayParams.CollisionGroup = root.CollisionGroup
+
+		local success, result = pcall(function()
+			return workspace:Blockcast(root.CFrame, RAYCAST_SIZE, Vector3.new(0, distance, 0), rayParams)
+		end)
+		return success and result or nil
+	end
+
+	local function resetFallState()
+		groundHitSent = false
+	end
+
+	local function disconnectGroundHit()
+		if groundHitConnection then
 			pcall(function()
-				groundHit = bedwars.Client:Get(remotes.GroundHit).instance
+				groundHitConnection:Disconnect()
 			end)
+			groundHitConnection = nil
 		end
-		if groundHit then
-			-- Resetting the server-side fall tracker: tells the server we already
-			-- "landed" with this velocity so the next real landing deals no damage.
-			groundHit:FireServer(nil, Vector3.new(0, velocityY, 0), workspace:GetServerTimeNow())
-			return true
-		end
-		return false
+		resetFallState()
 	end
 
 	NoFall = vape.Categories.Blatant:CreateModule({
 		Name = 'NoFall',
 		Function = function(callback)
-			if callback then
-				local tracked = 0
-				if Mode.Value == 'Gravity' then
-					local extraGravity = 0
-					NoFall:Clean(runService.PreSimulation:Connect(function(dt)
-						if entitylib.isAlive then
-							local root = entitylib.character.RootPart
-							if root.AssemblyLinearVelocity.Y < -85 then
-								rayParams.FilterDescendantsInstances = {lplr.Character, gameCamera}
-								rayParams.CollisionGroup = root.CollisionGroup
+			if not callback then
+				disconnectGroundHit()
+				return
+			end
 
-								local rootSize = root.Size.Y / 2 + entitylib.character.HipHeight
-								local ray = workspace:Blockcast(root.CFrame, Vector3.new(3, 3, 3), Vector3.new(0, (tracked * 0.1) - rootSize, 0), rayParams)
-								if not ray then
-									root.AssemblyLinearVelocity = Vector3.new(root.AssemblyLinearVelocity.X, -86, root.AssemblyLinearVelocity.Z)
-									root.CFrame += Vector3.new(0, extraGravity * dt, 0)
-									extraGravity += -workspace.Gravity * dt
-								end
-							else
-								extraGravity = 0
-							end
-						end
-					end))
+			if groundHitConnection then
+				return
+			end
+
+			local trackedVelocity = 0
+			local extraGravity = 0
+
+			groundHitConnection = runService.PreSimulation:Connect(function(deltaTime)
+				if not entitylib.isAlive then
+					trackedVelocity = 0
+					extraGravity = 0
+					resetFallState()
+					return
+				end
+
+				local character = entitylib.character
+				local root = character and character.RootPart
+				local humanoid = character and character.Humanoid
+				if not root or not humanoid then
+					trackedVelocity = 0
+					extraGravity = 0
+					resetFallState()
+					return
+				end
+
+				if humanoid.FloorMaterial ~= Enum.Material.Air then
+					trackedVelocity = 0
+					extraGravity = 0
+					resetFallState()
+					return
+				end
+
+				local velocityY = root.AssemblyLinearVelocity.Y
+				trackedVelocity = math.min(trackedVelocity, velocityY)
+				local mode = Mode and Mode.Value or 'Packet'
+
+				if mode == 'Packet' then
+					if not groundHitSent and velocityY < PACKET_FALL_THRESHOLD then
+						groundHitSent = true
+						sendGroundHit(root, humanoid)
+					end
+					return
+				end
+
+				if mode == 'Gravity' then
+					if velocityY < DAMAGE_FALL_THRESHOLD then
+						local rootSize = root.Size.Y / 2 + character.HipHeight
+						local ray = castDown(root, (trackedVelocity * 0.1) - rootSize)
+						if not ray then
+						root.AssemblyLinearVelocity = Vector3.new(root.AssemblyLinearVelocity.X, -86, root.AssemblyLinearVelocity.Z)
+						root.CFrame += Vector3.new(0, extraGravity * (deltaTime or 0), 0)
+						extraGravity += -workspace.Gravity * (deltaTime or 0)
+					end
 				else
-					repeat
-						if entitylib.isAlive then
-							local root = entitylib.character.RootPart
-							tracked = entitylib.character.Humanoid.FloorMaterial == Enum.Material.Air and math.min(tracked, root.AssemblyLinearVelocity.Y) or 0
+					extraGravity = 0
+				end
+				return
+			end
 
-							if tracked < -85 then
-								if Mode.Value == 'Packet' then
-									if fireGroundHit(tracked) then
-										tracked = 0
-									end
-								else
-									rayParams.FilterDescendantsInstances = {lplr.Character, gameCamera}
-									rayParams.CollisionGroup = root.CollisionGroup
-
-									local rootSize = root.Size.Y / 2 + entitylib.character.HipHeight
-									if Mode.Value == 'Teleport' then
-										local ray = workspace:Blockcast(root.CFrame, Vector3.new(3, 3, 3), Vector3.new(0, -1000, 0), rayParams)
-										if ray then
-											root.CFrame -= Vector3.new(0, root.Position.Y - (ray.Position.Y + rootSize), 0)
-										end
-									else
-										local ray = workspace:Blockcast(root.CFrame, Vector3.new(3, 3, 3), Vector3.new(0, (tracked * 0.1) - rootSize, 0), rayParams)
-										if ray then
-											tracked = 0
-											root.AssemblyLinearVelocity = Vector3.new(root.AssemblyLinearVelocity.X, -80, root.AssemblyLinearVelocity.Z)
-										end
-									end
-								end
-							end
-						end
-
-						task.wait(0.03)
-					until not NoFall.Enabled
+			if trackedVelocity < DAMAGE_FALL_THRESHOLD then
+				local rootSize = root.Size.Y / 2 + character.HipHeight
+				if mode == 'Teleport' then
+					local ray = castDown(root, -1000)
+					if ray then
+						local landingHeight = ray.Position.Y + rootSize
+						root.CFrame -= Vector3.new(0, root.Position.Y - landingHeight, 0)
+					end
+				else
+					local ray = castDown(root, (trackedVelocity * 0.1) - rootSize)
+					if ray then
+						trackedVelocity = 0
+						root.AssemblyLinearVelocity = Vector3.new(root.AssemblyLinearVelocity.X, -80, root.AssemblyLinearVelocity.Z)
+					end
 				end
 			end
+		end)
+
+			NoFall:Clean(groundHitConnection)
 		end,
-		Tooltip = 'Prevents taking fall damage.\nPacket - Cancels damage server-side (best)\nGravity - Caps fall speed below the damage threshold\nTeleport - Snaps you to the ground\nBounce - Slows you right before landing'
+		Tooltip = 'Prevents fall damage. Packet sends one GroundHit packet per fall; Gravity limits descent; Teleport snaps to ground; Bounce slows the landing.'
 	})
+
 	Mode = NoFall:CreateDropdown({
 		Name = 'Mode',
 		List = {'Packet', 'Gravity', 'Teleport', 'Bounce'},

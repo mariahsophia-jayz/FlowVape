@@ -26,8 +26,26 @@ local function downloadFile(path, func)
 	end
 	return (func or readfile)(path)
 end
-local run = function(func)
-	func()
+local hasReportedModuleError = false
+local function run(callback)
+	local success, err = pcall(callback)
+	if not success then
+		warn(('[FlowVape] Failed to initialize a universal module: %s'):format(tostring(err)))
+
+		local currentVape = shared and shared.vape
+		if currentVape and not hasReportedModuleError then
+			hasReportedModuleError = true
+			pcall(function()
+				currentVape:CreateNotification(
+					'FlowVape',
+					'A universal module failed to initialize. Check the console for details.',
+					8,
+					'alert'
+				)
+			end)
+		end
+	end
+	return success
 end
 local queue_on_teleport = queue_on_teleport or function() end
 local cloneref = cloneref or function(obj)

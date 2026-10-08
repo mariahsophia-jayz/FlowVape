@@ -23,6 +23,12 @@ Discord Server For FlowVape: https://discord.gg/ayMU8GakVw
 
 ## 📝 Changelog
 
+### 2026-10 — Game script reliability & NoFall refresh
+- **NoFall:** integrated the GroundHit-based packet path into the existing four-mode module. It probes nearby placed blocks, sends once per fall at the requested velocity threshold, resets on landing/respawn, and disconnects cleanly when disabled.
+- **BedWars utilities:** made armor, bow, sword, tool, wool, strength, and placed-block lookups more defensive; `getWool` now accepts an optional inventory instead of reading an undeclared global.
+- **Module startup:** game-module initializers report errors without preventing unrelated modules from loading. The BedWars lobby bootstrap now has bounded waits and exits cleanly if Knit never becomes ready.
+- **Game loaders:** the two BedWars alias loaders now preserve the native `loadstring`, validate cached/downloaded source, and report compile or startup errors.
+
 ### 2026-09 — Module fix & revamp pass
 - **Root cause fix:** `safeGetProto` in `games/6872274481.lua` was calling itself recursively instead of `debug.getproto`, so ~20 remotes (EquipItem, ConsumeItem, DropItem, AfkStatus, kit remotes, …) resolved to empty strings and every module using them silently failed. Now resolves correctly, with nested-proto scanning and named fallbacks.
 - **NoFall:** restored the working 4-mode module (Packet / Gravity / Teleport / Bounce). Packet mode cancels fall damage server-side via the GroundHit remote.
